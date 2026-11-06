@@ -1,0 +1,20 @@
+{
+  "name": "affective-bandit",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "start": "python3 -m http.server 8080"
+  },
+  "dependencies": {
+    "@jspsych/plugin-call-function": "2.1.0",
+    "@jspsych/plugin-html-button-response": "2.1.0",
+    "@jspsych/plugin-html-keyboard-response": "2.2.0",
+    "@jspsych/plugin-html-slider-response": "2.1.0",
+    "@jspsych/plugin-survey-multi-choice": "2.2.1",
+    "jspsych": "8.3.0"
+  },
+  "devDependencies": {
+    "puppeteer-core": "24.15.0"
+  }
+}
