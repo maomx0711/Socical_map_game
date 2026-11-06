@@ -69,9 +69,9 @@ const QUIZ = [
   {
     prompt: "同一张图片每次出现的分数会怎样？",
     name: "noise",
-    options: ["每次都完全一样", "在一个固定的平均分附近波动", "完全随机，没有规律"],
+    options: ["每次都完全一样", "在它的固定价值附近波动", "完全随机，没有规律"],
     required: true,
-    correct: "在一个固定的平均分附近波动",
+    correct: "在它的固定价值附近波动",
   },
   {
     prompt: "最后的测验阶段会显示分数吗？",
@@ -83,9 +83,9 @@ const QUIZ = [
   {
     prompt: "你选择时的目标是什么？",
     name: "goal",
-    options: ["选择看起来更愉快的图片", "选择平均分更高的图片", "左右轮流按"],
+    options: ["选择看起来更愉快的图片", "选择价值最高的图片", "左右轮流按"],
     required: true,
-    correct: "选择平均分更高的图片",
+    correct: "选择价值最高的图片",
   },
 ];
 
@@ -241,7 +241,7 @@ function makeDecisionTimeline(jsPsych, spec) {
         trialTotal: jsPsych.evaluateTimelineVariable("trial_total"),
         showScore: spec.phase !== "test",
         score: session.score,
-        ask: spec.phase === "test" ? "请选择你认为平均分更高的一个" : "请选择平均分更高的一个",
+        ask: spec.phase === "test" ? "请选择你认为价值最高的一个" : "请选择价值最高的一个",
       };
       session.current = {
         left,
@@ -361,7 +361,7 @@ function blockIntro(block) {
       feedbackLine,
       `屏幕上每次出现${material}。本部分共 ${block.trials.length} 次，由固定的两对图片反复出现。`,
         "只有你选中的分数会计入这部分得分。按 <kbd>F</kbd> 选左边，按 <kbd>J</kbd> 选右边。",
-        "每张图的平均分是固定的，单次分数会在平均分附近波动。平均分和表情或词义没有固定关系，请根据看到的分数学习。",
+        "每张图的价值是固定的，单次分数会在这个价值附近波动。请选择价值最高的一张。价值和表情或词义没有固定关系，请根据看到的分数学习。",
       ],
     }),
     `intro-${block.blockId}`,
@@ -405,8 +405,8 @@ function buildTimeline(jsPsych, assignment, plan) {
       ],
       items: [
         "第一部分评定情绪面孔和情绪词。",
-        "第二部分在二选一中学习每张图的平均分。",
-        "第三部分不再出现分数，请按学到的价值继续选择。",
+        "第二部分在二选一中学习每张图的价值。",
+        "第三部分不再出现分数，请选择价值最高的一个。",
       ],
     }),
     "welcome",
@@ -475,12 +475,12 @@ function buildTimeline(jsPsych, assignment, plan) {
       kicker: "第二部分",
       title: "学习每张图的价值",
       paragraphs: [
-        "每次屏幕左右各出现一张图。每张图都有一个固定的平均分，但你看到的单次分数会在平均分附近上下波动，所有图片的波动幅度相同。",
+        "每次屏幕左右各出现一张图。每张图都有一个固定的价值，也就是它的平均分。你看到的单次分数会在这个价值附近上下波动，所有图片的波动幅度相同。",
         "有的部分只显示你选中的分数，有的部分两个分数都显示。无论哪一种，只有选中的分数计入得分。",
       ],
       items: [
         "按 <kbd>F</kbd> 选择左边，按 <kbd>J</kbd> 选择右边。看清两张图后再按，松手后再做下一次。",
-        "目标是尽量选中平均分更高的图。平均分是预先设定的，和表情好不好、词语积极不积极没有固定关系。",
+        "目标是选择价值最高的那一张。价值是预先设定的，和表情好不好、词语积极不积极没有固定关系。",
         "先用几何图形练习按键和两种反馈，练习分数不计入成绩。",
       ],
     }),
@@ -491,7 +491,7 @@ function buildTimeline(jsPsych, assignment, plan) {
     renderProse({
       kicker: "练习",
       title: "只显示所选项的分数",
-      paragraphs: ["下面是两个几何图形。选出一个之后，只会出现它的分数。请从分数里判断哪一个平均更高。"],
+      paragraphs: ["下面是两个几何图形。选出一个之后，只会出现它的分数。请从分数里判断哪一个价值最高。"],
     }),
     "practice-partial-intro",
     "开始练习"
@@ -565,7 +565,7 @@ function buildTimeline(jsPsych, assignment, plan) {
       paragraphs: [
         "接下来不再显示任何分数，得分也不会变化。",
         "同一类图片会被重新随机配对，其中有些组合是你在学习阶段没有一起见过的。",
-        "请仍然选择你认为平均分更高的那一张，尽量又快又准。按 <kbd>F</kbd> 或 <kbd>J</kbd>。",
+        "请选择你认为价值最高的那一张，尽量又快又准。按 <kbd>F</kbd> 或 <kbd>J</kbd>。",
       ],
     }),
     "test-intro",
@@ -646,7 +646,7 @@ function buildTimeline(jsPsych, assignment, plan) {
           renderProse({
             kicker: "测验",
             title: block.modality === "face" ? "接下来是情绪面孔" : "接下来是情绪词",
-            paragraphs: ["配对已重新打乱。仍然选择平均分更高的一个，没有分数反馈。"],
+            paragraphs: ["配对已重新打乱。请选择价值最高的一个，没有分数反馈。"],
           }),
           `test-switch-${block.modality}`
         )

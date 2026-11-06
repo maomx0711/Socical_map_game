@@ -18,7 +18,7 @@ const view = {
 };
 
 test("选择界面不出现分数", () => {
-  const html = renderChoice({ ...view, ask: "请选择平均分更高的一个" });
+  const html = renderChoice({ ...view, ask: "请选择价值最高的一个" });
   assert.equal(html.includes('class="points"'), false);
   assert.match(html, /<kbd>F<\/kbd>/);
   assert.match(html, /<kbd>J<\/kbd>/);

@@ -5,7 +5,7 @@ const base = process.env.CHECK_URL || "http://127.0.0.1:8080";
 const chrome = process.env.CHROME_PATH || "/usr/bin/google-chrome";
 const shots = process.env.SHOT_DIR || "/tmp/affective-shots";
 
-const quizAnswers = ["F", "不会显示", "不会计入", "在一个固定的平均分附近波动", "不显示分数", "选择平均分更高的图片"];
+const quizAnswers = ["F", "不会显示", "不会计入", "在它的固定价值附近波动", "不显示分数", "选择价值最高的图片"];
 
 function launch() {
   return puppeteer.launch({
@@ -147,6 +147,8 @@ while (!seen.end) {
   if (state.choice) {
     if (!seen.choice && state.hud.includes("价值学习")) {
       seen.choice = true;
+      const prompt = await text(flow);
+      assert.match(prompt, /请选择价值最高的一个/);
       await shoot(flow, "choice");
     }
     await flow.keyboard.press("f");
