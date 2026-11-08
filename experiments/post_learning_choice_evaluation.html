@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>社会学习后的选择与固定选项评价</title>
+  <script src="https://unpkg.com/jspsych@8.2.2"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@2.0.0"></script>
+  <link href="https://unpkg.com/jspsych@8.2.2/css/jspsych.css" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c0f14;
+      --panel: #161b26;
+      --text: #eef2f7;
+      --muted: #8b9cb3;
+      --aff: #f59e0b;
+      --sta: #38bdf8;
+    }
+    body { background: var(--bg); color: var(--text); }
+    .exp-header { text-align: center; margin: 1rem 0; font-size: 0.9rem; color: var(--muted); }
+    .trial-container {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 68vh; gap: 1.15rem; padding: 0 1rem 2rem;
+    }
+    .question-text { font-size: 1.32rem; font-weight: 650; text-align: center; max-width: 760px; }
+    .block-banner {
+      padding: 0.35rem 1rem; border-radius: 999px; font-size: 0.85rem;
+      background: var(--panel); color: var(--muted);
+    }
+    .block-banner.learn { border: 1px solid var(--sta); color: #bae6fd; }
+    .block-banner.choice { border: 1px solid var(--aff); color: #fde68a; }
+    .block-banner.eval { border: 1px solid #a855f7; color: #e9d5ff; }
+    .dim-cue { width: 46px; height: 46px; border-radius: 10px; }
+    .dim-cue.aff { background: var(--aff); }
+    .dim-cue.sta { background: var(--sta); }
+    .dim-label { font-weight: 700; }
+    .dim-label.aff { color: var(--aff); }
+    .dim-label.sta { color: var(--sta); }
+    .comparison-row, .choice-row, .eval-row {
+      display: flex; align-items: flex-start; justify-content: center; gap: 1.6rem; flex-wrap: wrap;
+    }
+    .face-card {
+      width: 132px; min-height: 168px; border-radius: 14px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: linear-gradient(160deg, #1e293b, #334155);
+      border: 3px solid #475569; box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+      color: inherit;
+    }
+    button.face-card { cursor: pointer; font: inherit; }
+    button.face-card:hover { transform: translateY(-2px); border-color: #e2e8f0; }
+    .face-avatar {
+      width: 76px; height: 76px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.55rem; font-weight: 700; color: white;
+    }
+    .face-name { margin-top: 0.55rem; font-weight: 700; }
+    .vs-badge { font-size: 1.25rem; color: var(--muted); font-weight: 800; align-self: center; }
+    .hint-text { color: var(--muted); font-size: 0.92rem; text-align: center; max-width: 680px; }
+    .feedback-correct { color: #4ade80; font-size: 2rem; font-weight: 700; }
+    .feedback-incorrect { color: #fb923c; font-size: 2rem; font-weight: 700; }
+    .pair-panel {
+      background: var(--panel); border: 1px solid #334155; border-radius: 16px;
+      padding: 0.9rem 0.9rem 1rem; min-width: 300px;
+    }
+    .pair-title { text-align: center; color: var(--muted); font-size: 0.85rem; margin-bottom: 0.55rem; }
+    .pair-faces { display: flex; justify-content: center; gap: 0.7rem; }
+    .scale {
+      display: flex; justify-content: center; gap: 0.35rem; margin-top: 0.85rem; flex-wrap: wrap;
+    }
+    .scale button {
+      min-width: 52px; padding: 0.45rem 0.4rem; border-radius: 8px;
+      border: 1px solid #475569; background: #0f172a; color: var(--text);
+      cursor: pointer; font: inherit; font-size: 0.82rem;
+    }
+    .scale button.selected { border-color: #f8fafc; background: #334155; font-weight: 700; }
+    .scale button.aff.selected { border-color: var(--aff); color: #fde68a; }
+    .scale button.sta.selected { border-color: var(--sta); color: #bae6fd; }
+    #confirm-eval {
+      margin-top: 0.4rem; padding: 0.65rem 1.4rem; border-radius: 10px;
+      border: 0; background: #4f46e5; color: white; font: inherit; font-weight: 700; cursor: pointer;
+    }
+    #confirm-eval:disabled { background: #334155; color: #94a3b8; cursor: not-allowed; }
+    #jspsych-progressbar-container { background: #1e293b !important; }
+    #jspsych-progressbar-inner { background: #818cf8 !important; }
+  </style>
+</head>
+<body>
+  <div class="exp-header">社会学习之后 · 同时呈现配对的选择任务与固定选项评价</div>
+  <script>
+    /* ============================================================
+       After social learning of affiliation (亲和力) and status (社会地位):
+       1) Choice: several people from different pairs shown together;
+          select the most affiliative person, or the highest-status person.
+       2) Evaluation: two different pairs shown together; the response
+          options are a fixed 1–5 scale on every trial.
+       Rank 1 = highest on that dimension.
+       ============================================================ */
+
+    const DEMO_MODE = new URLSearchParams(location.search).get('mode') !== 'full';
+    const LEARN_REPS = DEMO_MODE ? 1 : 3;
+    const N_CHOICE = DEMO_MODE ? 8 : 24;
+    const N_EVAL = DEMO_MODE ? 6 : 16;
+
+    const PEOPLE = [
+      { id: 1, name: '林知夏', aff: 1, sta: 5, color: '#6366f1' },
+      { id: 2, name: '周衡',   aff: 2, sta: 2, color: '#f43f5e' },
+      { id: 3, name: '陈予安', aff: 3, sta: 6, color: '#f97316' },
+      { id: 4, name: '苏晚晴', aff: 4, sta: 1, color: '#22c55e' },
+      { id: 5, name: '韩砺',   aff: 5, sta: 4, color: '#0ea5e9' },
+      { id: 6, name: '沈清和', aff: 6, sta: 3, color: '#a855f7' }
+    ];
+
+    const DIM = {
+      aff: { key: 'aff', label: '亲和力', cue: 'aff', question: '谁最具亲和力？', eval: '请评价每一对所体现的亲和力' },
+      sta: { key: 'sta', label: '社会地位', cue: 'sta', question: '谁的社会地位最高？', eval: '请评价每一对所体现的社会地位' }
+    };
+    const SCALE = ['1 很低', '2 偏低', '3 中等', '4 偏高', '5 很高'];
+
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+    function person(id) { return PEOPLE.find(p => p.id === id); }
+    function rankOf(id, dim) { return person(id)[dim]; }
+    function higherId(a, b, dim) { return rankOf(a, dim) < rankOf(b, dim) ? a : b; }
+
+    function faceHTML(id, tag) {
+      const p = person(id);
+      const inner = `
+        <div class="face-avatar" style="background:${p.color}">${p.name.slice(0, 1)}</div>
+        <div class="face-name">${p.name}</div>`;
+      if (tag === 'button') {
+        return `<button type="button" class="face-card pick" data-id="${id}">${inner}</button>`;
+      }
+      return `<div class="face-card">${inner}</div>`;
+    }
+
+    function adjacentPairs(dim) {
+      const sorted = [...PEOPLE].sort((a, b) => a[dim] - b[dim]);
+      const pairs = [];
+      for (let i = 0; i < sorted.length - 1; i++) pairs.push([sorted[i].id, sorted[i + 1].id]);
+      return pairs;
+    }
+
+    function buildLearnTrials() {
+      const trials = [];
+      ['aff', 'sta'].forEach(dim => {
+        adjacentPairs(dim).forEach(([a, b]) => {
+          for (let rep = 0; rep < LEARN_REPS; rep++) {
+            trials.push({ idA: a, idB: b, dim, phase: 'learn' });
+            trials.push({ idA: b, idB: a, dim, phase: 'learn' });
+          }
+        });
+      });
+      return shuffle(trials);
+    }
+
+    function buildChoiceTrials(n) {
+      const trials = [];
+      for (let i = 0; i < n; i++) {
+        const dim = i % 2 === 0 ? 'aff' : 'sta';
+        const ids = shuffle(PEOPLE.map(p => p.id)).slice(0, 3);
+        const winner = ids.reduce((best, id) => rankOf(id, dim) < rankOf(best, dim) ? id : best);
+        trials.push({ ids, dim, winner, phase: 'choice', trialNum: i + 1 });
+      }
+      return shuffle(trials);
+    }
+
+    function allUndirectedPairs() {
+      const pairs = [];
+      for (let i = 0; i < PEOPLE.length; i++) {
+        for (let j = i + 1; j < PEOPLE.length; j++) pairs.push([PEOPLE[i].id, PEOPLE[j].id]);
+      }
+      return pairs;
+    }
+
+    function pairStanding(pair, dim) {
+      return Math.max(7 - rankOf(pair[0], dim), 7 - rankOf(pair[1], dim));
+    }
+
+    function buildEvalTrials(n) {
+      const pool = allUndirectedPairs();
+      const trials = [];
+      let guard = 0;
+      while (trials.length < n && guard < 5000) {
+        guard++;
+        const dim = trials.length % 2 === 0 ? 'aff' : 'sta';
+        const pairA = pool[Math.floor(Math.random() * pool.length)];
+        const pairB = pool[Math.floor(Math.random() * pool.length)];
+        const shared = pairA.some(id => pairB.includes(id));
+        if (shared) continue;
+        trials.push({
+          pairA: [...pairA],
+          pairB: [...pairB],
+          dim,
+          valueA: pairStanding(pairA, dim),
+          valueB: pairStanding(pairB, dim),
+          phase: 'evaluation',
+          trialNum: trials.length + 1
+        });
+      }
+      return trials;
+    }
+
+    function learnHTML(trial) {
+      const d = DIM[trial.dim];
+      const leftFirst = Math.random() < 0.5;
+      trial._left = leftFirst ? trial.idA : trial.idB;
+      trial._right = leftFirst ? trial.idB : trial.idA;
+      return `
+        <div class="trial-container">
+          <div class="block-banner learn">社会学习 · ${d.label}</div>
+          <div class="dim-cue ${d.cue}"></div>
+          <div class="dim-label ${d.cue}">${d.label}</div>
+          <div class="question-text">${d.question}</div>
+          <div class="comparison-row">
+            ${faceHTML(trial._left)}
+            <div class="vs-badge">VS</div>
+            ${faceHTML(trial._right)}
+          </div>
+          <div class="hint-text">按 ← 选择左侧 · 按 → 选择右侧</div>
+        </div>`;
+    }
+
+    function choiceHTML(trial) {
+      const d = DIM[trial.dim];
+      const cards = trial.ids.map((id, i) => `
+        <div>
+          <div class="pair-title">按 ${i + 1} 或点击</div>
+          ${faceHTML(id, 'button')}
+        </div>`).join('');
+      return `
+        <div class="trial-container">
+          <div class="block-banner choice">选择 · ${trial.trialNum}/${N_CHOICE}</div>
+          <div class="dim-cue ${d.cue}"></div>
+          <div class="question-text">${d.question}</div>
+          <div class="hint-text">三人同时呈现，来自不同的学习配对。请只根据「${d.label}」选择一人。</div>
+          <div class="choice-row">${cards}</div>
+        </div>`;
+    }
+
+    function evalHTML(trial) {
+      const d = DIM[trial.dim];
+      const panel = (pair, label, which) => `
+        <div class="pair-panel" data-which="${which}">
+          <div class="pair-title">${label}</div>
+          <div class="pair-faces">${faceHTML(pair[0])}${faceHTML(pair[1])}</div>
+          <div class="scale">
+            ${SCALE.map((lab, i) => `<button type="button" class="${d.cue}" data-which="${which}" data-value="${i + 1}">${lab}</button>`).join('')}
+          </div>
+        </div>`;
+      return `
+        <div class="trial-container">
+          <div class="block-banner eval">评价 · ${trial.trialNum}/${N_EVAL}</div>
+          <div class="dim-cue ${d.cue}"></div>
+          <div class="question-text">${d.eval}</div>
+          <div class="hint-text">两对同时呈现。每一对都使用同一套固定选项：1 = 很低，5 = 很高。评价的是该对中在「${d.label}」上更突出的人。</div>
+          <div class="eval-row">
+            ${panel(trial.pairA, '配对 A', 'A')}
+            ${panel(trial.pairB, '配对 B', 'B')}
+          </div>
+          <button type="button" id="confirm-eval" disabled>确认评价</button>
+        </div>`;
+    }
+
+    const choiceFirst = Math.random() < 0.5;
+    const learnTrials = buildLearnTrials();
+    const choiceTrials = buildChoiceTrials(N_CHOICE);
+    const evalTrials = buildEvalTrials(N_EVAL);
+
+    const jsPsych = initJsPsych({
+      show_progress_bar: true,
+      on_finish: () => {
+        const rows = jsPsych.data.get().filter({ experiment: 'post_learning_choice_eval' }).values();
+        const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `post_learning_choice_eval_${Date.now()}.json`;
+        a.click();
+      }
+    });
+
+    function screen(html) {
+      return {
+        type: jsPsychHtmlKeyboardResponse,
+        stimulus: `<div class="trial-container">${html}<p class="hint-text">按任意键继续</p></div>`,
+        choices: 'ALL_KEYS'
+      };
+    }
+
+    const timeline = [];
+
+    timeline.push(screen(`
+      <h1>社会学习后的选择与评价</h1>
+      <p class="hint-text" style="line-height:1.75">
+        你将先通过成对比较，学习六位同事在两个独立维度上的相对位置：<br>
+        <span style="color:#f59e0b">亲和力</span>（谁更让人愿意接近、合作）与
+        <span style="color:#38bdf8">社会地位</span>（谁在群体中的地位更高）。<br><br>
+        学习时每次只出现一对相邻等级，并给出正误反馈。两个维度会混在同一次学习里，请看颜色方块判断当前问题。<br><br>
+        学习结束之后有两种测验，顺序已随机：<br>
+        · <strong>选择</strong>：同时呈现来自不同配对的三个人，选出最具亲和力的人，或社会地位最高的人。<br>
+        · <strong>评价</strong>：同时呈现两个不同配对；选项始终是同一套 1–5 量表，请给每一对打分。
+        ${DEMO_MODE ? '<br><br><em>当前为演示长度。完整试次请使用 ?mode=full</em>' : ''}
+      </p>`));
+
+    timeline.push({
+      timeline: [
+        {
+          type: jsPsychHtmlKeyboardResponse,
+          stimulus: () => learnHTML(jsPsych.timelineVariable('trial')),
+          choices: ['ArrowLeft', 'ArrowRight'],
+          data: { experiment: 'post_learning_choice_eval', task: 'social_learning' },
+          on_finish: function (data) {
+            const trial = jsPsych.timelineVariable('trial');
+            const chosen = data.response === 'ArrowLeft' ? trial._left : trial._right;
+            const correctId = higherId(trial.idA, trial.idB, trial.dim);
+            data.phase = 'learn';
+            data.dimension = trial.dim;
+            data.id_left = trial._left;
+            data.id_right = trial._right;
+            data.chosen_id = chosen;
+            data.correct_id = correctId;
+            data.correct = chosen === correctId;
+          }
+        },
+        {
+          type: jsPsychHtmlKeyboardResponse,
+          stimulus: function () {
+            const last = jsPsych.data.get().last(1).values()[0];
+            return `<div class="trial-container"><div class="${last.correct ? 'feedback-correct' : 'feedback-incorrect'}">${last.correct ? '正确' : '错误'}</div></div>`;
+          },
+          choices: 'NO_KEYS',
+          trial_duration: 700
+        }
+      ],
+      timeline_variables: learnTrials.map(trial => ({ trial }))
+    });
+
+    function choiceBlock() {
+      return [
+        screen(`
+          <h2>选择测验</h2>
+          <p class="hint-text" style="line-height:1.7">
+            每次同时出现三个人。他们来自不同的学习配对，不能只靠记住某一对的答案。<br>
+            琥珀色问题：选出<strong>最具亲和力</strong>的人。<br>
+            蓝色问题：选出<strong>社会地位最高</strong>的人。<br>
+            可以点击人物，或按键盘 1、2、3。没有反馈。
+          </p>`),
+        {
+          timeline: [{
+            type: jsPsychHtmlKeyboardResponse,
+            stimulus: () => choiceHTML(jsPsych.timelineVariable('trial')),
+            choices: 'NO_KEYS',
+            data: { experiment: 'post_learning_choice_eval', task: 'choice' },
+            on_load: function () {
+              const trial = jsPsych.timelineVariable('trial');
+              const t0 = performance.now();
+              let done = false;
+              const onKey = (e) => {
+                const map = { '1': 0, '2': 1, '3': 2 };
+                if (map[e.key] === undefined) return;
+                e.preventDefault();
+                commit(trial.ids[map[e.key]]);
+              };
+              const commit = (id) => {
+                if (done) return;
+                done = true;
+                document.removeEventListener('keydown', onKey);
+                jsPsych.finishTrial({
+                  phase: 'choice',
+                  dimension: trial.dim,
+                  option_ids: trial.ids.join(','),
+                  chosen_id: id,
+                  correct_id: trial.winner,
+                  correct: id === trial.winner,
+                  rt: Math.round(performance.now() - t0)
+                });
+              };
+              document.querySelectorAll('.pick').forEach(btn => {
+                btn.addEventListener('click', () => commit(Number(btn.dataset.id)));
+              });
+              document.addEventListener('keydown', onKey);
+            }
+          }],
+          timeline_variables: choiceTrials.map(trial => ({ trial }))
+        }
+      ];
+    }
+
+    function evalBlock() {
+      return [
+        screen(`
+          <h2>固定选项评价</h2>
+          <p class="hint-text" style="line-height:1.7">
+            每次同时出现两个不同的配对。请评价每一对里，在当前维度上更突出的那个人。<br>
+            选项在所有试次中固定不变：1 很低、2 偏低、3 中等、4 偏高、5 很高。<br>
+            两对都完成评分后，按「确认评价」。没有反馈。
+          </p>`),
+        {
+          timeline: [{
+            type: jsPsychHtmlKeyboardResponse,
+            stimulus: () => evalHTML(jsPsych.timelineVariable('trial')),
+            choices: 'NO_KEYS',
+            data: { experiment: 'post_learning_choice_eval', task: 'evaluation' },
+            on_load: function () {
+              const trial = jsPsych.timelineVariable('trial');
+              const t0 = performance.now();
+              const rating = { A: null, B: null };
+              const confirm = document.getElementById('confirm-eval');
+              document.querySelectorAll('.scale button').forEach(btn => {
+                btn.addEventListener('click', () => {
+                  const which = btn.dataset.which;
+                  rating[which] = Number(btn.dataset.value);
+                  document.querySelectorAll(`.scale button[data-which="${which}"]`).forEach(b => b.classList.remove('selected'));
+                  btn.classList.add('selected');
+                  confirm.disabled = !(rating.A && rating.B);
+                });
+              });
+              confirm.addEventListener('click', () => {
+                if (!(rating.A && rating.B)) return;
+                const va = trial.valueA;
+                const vb = trial.valueB;
+                let orderCorrect = true;
+                if (va > vb) orderCorrect = rating.A > rating.B;
+                else if (vb > va) orderCorrect = rating.B > rating.A;
+                else orderCorrect = rating.A === rating.B;
+                jsPsych.finishTrial({
+                  phase: 'evaluation',
+                  dimension: trial.dim,
+                  pair_a: trial.pairA.join(','),
+                  pair_b: trial.pairB.join(','),
+                  rating_a: rating.A,
+                  rating_b: rating.B,
+                  value_a: va,
+                  value_b: vb,
+                  correct: orderCorrect,
+                  rt: Math.round(performance.now() - t0)
+                });
+              });
+            }
+          }],
+          timeline_variables: evalTrials.map(trial => ({ trial }))
+        }
+      ];
+    }
+
+    const testOrder = choiceFirst ? [choiceBlock, evalBlock] : [evalBlock, choiceBlock];
+    timeline.push(screen(`
+      <h2>学习结束</h2>
+      <p class="hint-text">接下来进入测验。本轮先进行${choiceFirst ? '选择' : '固定选项评价'}，之后是${choiceFirst ? '固定选项评价' : '选择'}。测验均无反馈。</p>`));
+    testOrder.forEach(block => timeline.push(...block()));
+
+    timeline.push({
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: function () {
+        const mean = (task) => {
+          const rows = jsPsych.data.get().filter({ task }).values().filter(r => typeof r.correct === 'boolean');
+          if (!rows.length) return '—';
+          return (rows.filter(r => r.correct).length / rows.length * 100).toFixed(1) + '%';
+        };
+        return `
+          <div class="trial-container">
+            <h2>实验完成</h2>
+            <p class="hint-text" style="line-height:1.9">
+              社会学习正确率：<strong>${mean('social_learning')}</strong><br>
+              选择测验正确率：<strong>${mean('choice')}</strong><br>
+              评价顺序一致率：<strong>${mean('evaluation')}</strong><br><br>
+              评价一致率指两对评分的高低是否与该维度上更突出者的真实等级一致。<br>
+              数据已下载为 JSON。测验顺序：${choiceFirst ? '先选择，后评价' : '先评价，后选择'}。
+            </p>
+            <p class="hint-text">按任意键结束</p>
+          </div>`;
+      },
+      choices: 'ALL_KEYS'
+    });
+
+    jsPsych.run(timeline);
+  </script>
+</body>
+</html>
