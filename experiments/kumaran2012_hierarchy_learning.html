@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kumaran et al. (2012) — Hierarchy Learning Task</title>
+  <script src="https://unpkg.com/jspsych@8.2.2"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@2.0.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-html-button-response@2.0.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-call-function@2.0.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-survey-html-form@2.0.0"></script>
+  <link href="https://unpkg.com/jspsych@8.2.2/css/jspsych.css" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --accent: #3b82f6;
+      --accent2: #10b981;
+      --text: #e8edf5;
+      --muted: #94a3b8;
+    }
+    body { background: var(--bg); color: var(--text); }
+    .exp-header { text-align: center; margin: 1rem 0 0.5rem; font-size: 0.9rem; color: var(--muted); }
+    .trial-container {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 70vh; gap: 1.5rem;
+    }
+    .question-text { font-size: 1.4rem; font-weight: 600; text-align: center; max-width: 700px; }
+    .comparison-row {
+      display: flex; align-items: center; justify-content: center; gap: 3rem; flex-wrap: wrap;
+    }
+    .stimulus-card {
+      width: 160px; height: 200px; border-radius: 16px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      border: 3px solid transparent; cursor: pointer; transition: transform 0.15s, border-color 0.15s;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    }
+    .stimulus-card:hover { transform: scale(1.03); }
+    .stimulus-card.selected { border-color: #fbbf24; }
+    .stimulus-card.social { background: linear-gradient(145deg, #1e3a5f, #2563eb); }
+    .stimulus-card.nonsocial { background: linear-gradient(145deg, #134e4a, #059669); }
+    .stimulus-icon { font-size: 4rem; line-height: 1; }
+    .stimulus-label { margin-top: 0.75rem; font-size: 1.1rem; font-weight: 700; }
+    .vs-badge {
+      font-size: 1.5rem; font-weight: 800; color: var(--muted);
+      background: var(--panel); padding: 0.5rem 1rem; border-radius: 999px;
+    }
+    .hint-text { color: var(--muted); font-size: 0.95rem; }
+    .feedback-correct { color: #4ade80; font-size: 2rem; font-weight: 700; }
+    .feedback-incorrect { color: #fb923c; font-size: 2rem; font-weight: 700; }
+    .block-label {
+      background: var(--panel); padding: 0.4rem 1rem; border-radius: 8px;
+      font-size: 0.85rem; color: var(--accent);
+    }
+    .confidence-row { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+    .confidence-btn {
+      min-width: 140px; padding: 1rem 1.5rem !important;
+      font-size: 1rem !important; border-radius: 12px !important;
+    }
+    .recall-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 1rem; max-width: 900px; margin: 0 auto;
+    }
+    .recall-item {
+      background: var(--panel); border-radius: 12px; padding: 1rem; text-align: center;
+    }
+    .recall-item select { width: 100%; margin-top: 0.5rem; padding: 0.4rem; border-radius: 6px; }
+    #jspsych-progressbar-container { background: #1e293b !important; }
+    #jspsych-progressbar-inner { background: var(--accent) !important; }
+  </style>
+</head>
+<body>
+  <div class="exp-header">Kumaran, Melo &amp; Duzel (2012) — Learn Phase · Hierarchy Learning Task</div>
+  <script>
+    /* ============================================================
+       Kumaran et al. (2012) — Hierarchy Learning Task (Learn Phase)
+       7-item linear hierarchies: social (people) & nonsocial (galaxies)
+       Training: adjacent pairs + feedback | Test: non-adjacent + confidence
+       ============================================================ */
+
+    const DEMO_MODE = new URLSearchParams(location.search).get('mode') !== 'full';
+    const NUM_BLOCKS = DEMO_MODE ? 3 : 15;
+
+    const PERSON_NAMES = ['Alex', 'Blake', 'Casey', 'Dana', 'Ellis', 'Finn', 'Gray'];
+    const PERSON_ICONS = ['👨‍💼', '👩‍💼', '🧑‍💼', '👨‍🔬', '👩‍🔬', '🧑‍⚖️', '👨‍🏫'];
+    const GALAXY_NAMES = ['Andromeda', 'Centaurus', 'Draco', 'Eridanus', 'Fornax', 'Gemini', 'Hydra'];
+    const GALAXY_ICONS = ['🌌', '🪐', '✨', '💫', '🌠', '🔭', '🛸'];
+
+    // Rank 1 = highest power / most mineral; rank 7 = lowest
+    const TRAINING_PAIRS = [[1,2],[2,3],[3,4],[4,5],[5,6],[6,7]];
+    const TEST_PAIRS = [[2,4],[2,5],[2,6],[3,5],[3,6],[4,6]];
+
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function buildBlockTrials(blockNum) {
+      const trials = [];
+      const trainingTypes = shuffle(TRAINING_PAIRS.flatMap(([a,b]) => [
+        { domain: 'social', rankA: a, rankB: b },
+        { domain: 'nonsocial', rankA: a, rankB: b }
+      ]));
+      trainingTypes.forEach((t, i) => {
+        trials.push({ ...t, phase: 'training', block: blockNum, trialInBlock: i + 1 });
+      });
+      const testTypes = shuffle(TEST_PAIRS.flatMap(([a,b]) => [
+        { domain: 'social', rankA: a, rankB: b },
+        { domain: 'nonsocial', rankA: a, rankB: b }
+      ]));
+      testTypes.forEach((t, i) => {
+        trials.push({ ...t, phase: 'test', block: blockNum, trialInBlock: trainingTypes.length + i + 1 });
+      });
+      return trials;
+    }
+
+    const allTrials = [];
+    for (let b = 1; b <= NUM_BLOCKS; b++) {
+      allTrials.push(...buildBlockTrials(b));
+    }
+
+    function stimulusHTML(domain, rank, side) {
+      const isSocial = domain === 'social';
+      const names = isSocial ? PERSON_NAMES : GALAXY_NAMES;
+      const icons = isSocial ? PERSON_ICONS : GALAXY_ICONS;
+      const label = isSocial ? `P${rank}` : `G${rank}`;
+      const name = names[rank - 1];
+      const icon = icons[rank - 1];
+      return `
+        <div class="stimulus-card ${domain}" data-side="${side}" data-rank="${rank}">
+          <div class="stimulus-icon">${icon}</div>
+          <div class="stimulus-label">${label}</div>
+          <div style="font-size:0.85rem;color:#cbd5e1;margin-top:0.25rem">${name}</div>
+        </div>`;
+    }
+
+    function comparisonStimulus(trial) {
+      const isSocial = trial.domain === 'social';
+      const question = isSocial
+        ? '谁在公司中拥有更高的权力？'
+        : '哪个星系拥有更多的珍贵矿物？';
+      const leftFirst = Math.random() < 0.5;
+      const leftRank = leftFirst ? trial.rankA : trial.rankB;
+      const rightRank = leftFirst ? trial.rankB : trial.rankA;
+      trial._leftRank = leftRank;
+      trial._rightRank = rightRank;
+      const phaseLabel = trial.phase === 'training' ? '训练试次' : '测试试次（传递推理）';
+      return `
+        <div class="trial-container">
+          <div class="block-label">Block ${trial.block}/${NUM_BLOCKS} · ${phaseLabel}</div>
+          <div class="question-text">${question}</div>
+          <div class="comparison-row">
+            ${stimulusHTML(trial.domain, leftRank, 'left')}
+            <div class="vs-badge">VS</div>
+            ${stimulusHTML(trial.domain, rightRank, 'right')}
+          </div>
+          <div class="hint-text">按 ← 选择左侧 · 按 → 选择右侧</div>
+        </div>`;
+    }
+
+    function correctRank(trial) {
+      return Math.min(trial.rankA, trial.rankB); // lower number = higher rank
+    }
+
+    const jsPsych = initJsPsych({
+      show_progress_bar: true,
+      on_finish: () => {
+        const blob = new Blob([JSON.stringify(jsPsych.data.get().json(), null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `kumaran2012_${Date.now()}.json`;
+        a.click();
+      }
+    });
+
+    const timeline = [];
+
+    timeline.push({
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: `
+        <div class="trial-container">
+          <h1>等级学习任务</h1>
+          <p style="max-width:680px;text-align:center;line-height:1.7">
+            本实验复现 <strong>Kumaran, Melo &amp; Duzel (2012, Neuron)</strong> 的学习阶段（Learn Phase）。<br><br>
+            您将同时学习两个七级等级结构：<br>
+            · <strong>社会条件</strong>：虚构公司中 7 位员工的权力等级<br>
+            · <strong>非社会条件</strong>：7 个星系的矿物储量等级<br><br>
+            <strong>训练试次</strong>：呈现相邻等级对（如 P1 vs P2），选择更高等级项，并获得正误反馈。<br>
+            <strong>测试试次</strong>：呈现非相邻等级对（如 P3 vs P6），需通过传递推理判断，无反馈，并报告信心（1–3）。<br><br>
+            共 ${NUM_BLOCKS} 个 block，每 block 含 12 训练 + 12 测试试次。
+            ${DEMO_MODE ? '<br><em>当前为演示模式（3 blocks）。完整版请访问 ?mode=full</em>' : ''}
+          </p>
+          <p class="hint-text">按任意键开始</p>
+        </div>`,
+      choices: 'ALL_KEYS'
+    });
+
+  // Main learn phase — nested timeline with variables
+    const learnProcedure = {
+      timeline: [
+        {
+          type: jsPsychHtmlKeyboardResponse,
+          stimulus: function() {
+            const t = jsPsych.timelineVariable('trial');
+            return comparisonStimulus(t);
+          },
+          choices: ['ArrowLeft', 'ArrowRight'],
+          data: {
+            experiment: 'kumaran2012',
+            task: 'hierarchy_learning'
+          },
+          on_finish: function(data) {
+            const trial = jsPsych.timelineVariable('trial');
+            const chosenRank = data.response === 'ArrowLeft' ? trial._leftRank : trial._rightRank;
+            const correct = chosenRank === correctRank(trial);
+            data.phase = trial.phase;
+            data.block = trial.block;
+            data.domain = trial.domain;
+            data.rank_a = trial.rankA;
+            data.rank_b = trial.rankB;
+            data.chosen_rank = chosenRank;
+            data.correct_rank = correctRank(trial);
+            data.correct = correct;
+            data.adjacent = Math.abs(trial.rankA - trial.rankB) === 1;
+            if (trial.phase === 'training') {
+              data.inference_score = correct ? 1 : 0;
+            }
+          }
+        },
+        {
+          timeline: [{
+            type: jsPsychHtmlKeyboardResponse,
+            stimulus: function() {
+              const last = jsPsych.data.get().last(1).values()[0];
+              return `<div class="trial-container">
+                <div class="${last.correct ? 'feedback-correct' : 'feedback-incorrect'}">
+                  ${last.correct ? '✓ 正确' : '✗ 错误'}
+                </div>
+                <p class="hint-text">按任意键继续</p>
+              </div>`;
+            },
+            choices: 'ALL_KEYS',
+            trial_duration: 1500,
+            response_ends_trial: true
+          }],
+          conditional_function: function() {
+            const trial = jsPsych.timelineVariable('trial');
+            return trial.phase === 'training';
+          }
+        },
+        {
+          timeline: [{
+            type: jsPsychHtmlButtonResponse,
+            stimulus: `
+              <div class="trial-container">
+                <p class="question-text">您对刚才的选择有多确定？</p>
+                <p class="hint-text">1 = 猜测 · 2 = 不太确定 · 3 = 非常确定</p>
+              </div>`,
+            choices: ['1 — 猜测', '2 — 不太确定', '3 — 非常确定'],
+            button_html: (choice) => `<button class="jspsych-btn confidence-btn">${choice}</button>`,
+            on_finish: function(data) {
+              const last = jsPsych.data.get().last(1).values()[0];
+              const confidence = parseInt(data.response) + 1;
+              data.inference_score = (last.correct ? 1 : 0) * confidence;
+              data.confidence = confidence;
+            }
+          }],
+          conditional_function: function() {
+            const trial = jsPsych.timelineVariable('trial');
+            return trial.phase === 'test';
+          }
+        }
+      ],
+      timeline_variables: allTrials.map(trial => ({ trial }))
+    };
+
+    timeline.push(learnProcedure);
+
+    // Hierarchy recall (debriefing)
+    timeline.push({
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: `
+        <div class="trial-container">
+          <h2>等级回忆测试</h2>
+          <p style="max-width:600px;text-align:center;line-height:1.6">
+            学习阶段结束。接下来请回忆两个等级结构的顺序。<br>
+            等级 1 = 最高（权力最大 / 矿物最多），等级 7 = 最低。
+          </p>
+          <p class="hint-text">按任意键继续</p>
+        </div>`,
+      choices: 'ALL_KEYS'
+    });
+
+    function recallFormHTML(domain) {
+      const isSocial = domain === 'social';
+      const names = isSocial ? PERSON_NAMES : GALAXY_NAMES;
+      const icons = isSocial ? PERSON_ICONS : GALAXY_ICONS;
+      const prefix = isSocial ? 'P' : 'G';
+      const title = isSocial ? '公司员工权力等级' : '星系矿物储量等级';
+      let items = '';
+      for (let r = 1; r <= 7; r++) {
+        items += `
+          <div class="recall-item">
+            <div style="font-size:2rem">${icons[r-1]}</div>
+            <div><strong>${prefix}${r}</strong> ${names[r-1]}</div>
+            <select name="${domain}_${prefix}${r}" required>
+              <option value="">选择等级</option>
+              ${[1,2,3,4,5,6,7].map(rank => `<option value="${rank}">等级 ${rank}</option>`).join('')}
+            </select>
+          </div>`;
+      }
+      return `
+        <h3 style="text-align:center">${title}</h3>
+        <p style="text-align:center;color:#94a3b8">为每个项目分配其在等级中的位置（1=最高，7=最低，不可重复）</p>
+        <div class="recall-grid">${items}</div>`;
+    }
+
+    timeline.push({
+      type: jsPsychSurveyHtmlForm,
+      preamble: '<h2>社会等级回忆</h2>',
+      html: recallFormHTML('social'),
+      button_label: '提交社会等级',
+      data: { phase: 'recall', domain: 'social' },
+      on_finish: function(data) {
+        const resp = data.response;
+        let correct = 0;
+        for (let r = 1; r <= 7; r++) {
+          if (parseInt(resp[`social_P${r}`]) === r) correct++;
+        }
+        data.recall_accuracy = correct / 7;
+        data.recall_correct_count = correct;
+      }
+    });
+
+    timeline.push({
+      type: jsPsychSurveyHtmlForm,
+      preamble: '<h2>非社会等级回忆</h2>',
+      html: recallFormHTML('nonsocial'),
+      button_label: '提交非社会等级',
+      data: { phase: 'recall', domain: 'nonsocial' },
+      on_finish: function(data) {
+        const resp = data.response;
+        let correct = 0;
+        for (let r = 1; r <= 7; r++) {
+          if (parseInt(resp[`nonsocial_G${r}`]) === r) correct++;
+        }
+        data.recall_accuracy = correct / 7;
+        data.recall_correct_count = correct;
+      }
+    });
+
+    timeline.push({
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: function() {
+        const testData = jsPsych.data.get().filter({ phase: 'test' });
+        const meanInf = testData.select('inference_score').mean();
+        const acc = testData.select('correct').mean();
+        return `
+          <div class="trial-container">
+            <h2>实验完成</h2>
+            <p style="text-align:center;line-height:1.8">
+              测试试次平均正确率：<strong>${(acc * 100).toFixed(1)}%</strong><br>
+              平均传递推理指数（正确率 × 信心）：<strong>${meanInf.toFixed(2)}</strong> / 3<br><br>
+              数据已自动下载为 JSON 文件。
+            </p>
+            <p class="hint-text">按任意键结束</p>
+          </div>`;
+      },
+      choices: 'ALL_KEYS'
+    });
+
+    jsPsych.run(timeline);
+  </script>
+</body>
+</html>

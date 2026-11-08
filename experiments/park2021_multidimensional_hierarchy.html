@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Park, Miller &amp; Boorman (2021) — Multidimensional Hierarchy</title>
+  <script src="https://unpkg.com/jspsych@8.2.2"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@2.0.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-html-button-response@2.0.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-call-function@2.0.0"></script>
+  <link href="https://unpkg.com/jspsych@8.2.2/css/jspsych.css" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c0f14;
+      --panel: #161b26;
+      --comp-color: #3b82f6;
+      --pop-color: #ef4444;
+      --text: #eef2f7;
+      --muted: #8b9cb3;
+    }
+    body { background: var(--bg); color: var(--text); }
+    .exp-header { text-align: center; margin: 1rem 0; font-size: 0.9rem; color: var(--muted); }
+    .trial-container {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 68vh; gap: 1.25rem;
+    }
+    .question-text { font-size: 1.35rem; font-weight: 600; text-align: center; max-width: 720px; }
+    .comparison-row { display: flex; align-items: center; justify-content: center; gap: 2.5rem; flex-wrap: wrap; }
+    .face-card {
+      width: 150px; height: 190px; border-radius: 14px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: linear-gradient(160deg, #1e293b, #334155);
+      border: 3px solid #475569; box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    }
+    .face-card.ref { border-color: #fbbf24; box-shadow: 0 0 20px rgba(251,191,36,0.3); }
+    .face-avatar {
+      width: 90px; height: 90px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.2rem; font-weight: 700; color: white;
+    }
+    .face-id { margin-top: 0.6rem; font-weight: 700; font-size: 1rem; }
+    .dim-cue {
+      width: 48px; height: 48px; border-radius: 10px; margin: 0.5rem 0;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .dim-cue.competence { background: var(--comp-color); }
+    .dim-cue.popularity { background: var(--pop-color); }
+    .dim-label { font-size: 0.9rem; font-weight: 600; }
+    .dim-label.comp { color: var(--comp-color); }
+    .dim-label.pop { color: var(--pop-color); }
+    .vs-badge { font-size: 1.4rem; color: var(--muted); font-weight: 800; }
+    .block-banner {
+      padding: 0.35rem 1rem; border-radius: 999px; font-size: 0.85rem;
+      background: var(--panel); color: var(--muted);
+    }
+    .block-banner.learn { border: 1px solid var(--comp-color); color: #93c5fd; }
+    .block-banner.test { border: 1px solid #a855f7; color: #d8b4fe; }
+    .feedback-correct { color: #4ade80; font-size: 2rem; font-weight: 700; }
+    .feedback-incorrect { color: #fb923c; font-size: 2rem; font-weight: 700; }
+    .hint-text { color: var(--muted); font-size: 0.92rem; }
+    .grid-legend {
+      display: grid; grid-template-columns: repeat(4, 56px); gap: 4px;
+      font-size: 0.7rem; text-align: center; color: var(--muted);
+    }
+    .grid-legend .cell {
+      background: var(--panel); border-radius: 6px; padding: 0.35rem 0;
+      border: 1px solid #334155;
+    }
+    .partner-row { display: flex; gap: 1.5rem; align-items: flex-end; flex-wrap: wrap; justify-content: center; }
+    .partner-label { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.4rem; text-align: center; }
+    #jspsych-progressbar-container { background: #1e293b !important; }
+    #jspsych-progressbar-inner { background: var(--comp-color) !important; }
+  </style>
+</head>
+<body>
+  <div class="exp-header">Park, Miller &amp; Boorman (2021, Nature Neuroscience) · 多维社会等级 + 伙伴选择</div>
+  <script>
+    /* ============================================================
+       Park et al. (2021) — Multidimensional Social Hierarchy
+       16 individuals in 4×4 grid (Competence × Popularity)
+       Phase 1: Learning + Test blocks with binary comparisons
+       Phase 2: Partner Selection Task (Growth Potential inference)
+       ============================================================ */
+
+    const DEMO_MODE = new URLSearchParams(location.search).get('mode') !== 'full';
+    const FEEDBACK_ACCURACY = 0.75; // 75% reliable feedback (25% noise) per paper
+    const REPS_PER_PAIR = DEMO_MODE ? 1 : 4;
+
+    const FACE_COLORS = [
+      '#6366f1','#8b5cf6','#a855f7','#d946ef',
+      '#ec4899','#f43f5e','#ef4444','#f97316',
+      '#eab308','#84cc16','#22c55e','#14b8a6',
+      '#06b6d4','#0ea5e9','#3b82f6','#2563eb'
+    ];
+    const FACE_INITIALS = ['AA','BB','CC','DD','EE','FF','GG','HH','II','JJ','KK','LL','MM','NN','OO','PP'];
+
+    // 4×4 grid: id 1–4 bottom row (low popularity), 13–16 top row (high popularity)
+    // Competence increases left → right
+    function personCoords(id) {
+      const idx = id - 1;
+      return { row: Math.floor(idx / 4), col: idx % 4 };
+    }
+    function competenceRank(id) { return personCoords(id).col + 1; }
+    function popularityRank(id) { return personCoords(id).row + 1; }
+    function growthPotential(id) {
+      return (4 - competenceRank(id)) + (4 - popularityRank(id));
+    }
+
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+  // Generate adjacent pairs (1-rank difference) for a dimension
+    function adjacentPairs(dimension) {
+      const pairs = [];
+      for (let id = 1; id <= 16; id++) {
+        const { row, col } = personCoords(id);
+        if (dimension === 'competence' && col < 3) {
+          pairs.push([id, id + 1]);
+        }
+        if (dimension === 'popularity' && row < 3) {
+          pairs.push([id, id + 4]);
+        }
+      }
+      return pairs;
+    }
+
+  // Generate test pairs (≥1 rank difference, not adjacent) for a dimension
+    function testPairs(dimension) {
+      const pairs = [];
+      for (let a = 1; a <= 16; a++) {
+        for (let b = a + 1; b <= 16; b++) {
+          const rankA = dimension === 'competence' ? competenceRank(a) : popularityRank(a);
+          const rankB = dimension === 'competence' ? competenceRank(b) : popularityRank(b);
+          const diff = Math.abs(rankA - rankB);
+          if (diff >= 1) pairs.push([a, b]);
+        }
+      }
+      return pairs;
+    }
+
+    function buildLearnTrials(dimension, blockNum) {
+      const pairs = adjacentPairs(dimension);
+      const trials = [];
+      pairs.forEach(([a, b]) => {
+        for (let rep = 0; rep < REPS_PER_PAIR; rep++) {
+          trials.push({ idA: a, idB: b, dimension, phase: 'learn', block: blockNum });
+          trials.push({ idA: b, idB: a, dimension, phase: 'learn', block: blockNum });
+        }
+      });
+      return shuffle(trials);
+    }
+
+    function buildTestTrials(dimension, blockNum) {
+      let pairs = testPairs(dimension);
+      if (DEMO_MODE) pairs = shuffle(pairs).slice(0, 12);
+      const trials = [];
+      pairs.forEach(([a, b]) => {
+        trials.push({ idA: a, idB: b, dimension, phase: 'test', block: blockNum });
+        trials.push({ idA: b, idB: a, dimension, phase: 'test', block: blockNum });
+      });
+      return shuffle(trials);
+    }
+
+    function higherInDim(idA, idB, dimension) {
+      const rankA = dimension === 'competence' ? competenceRank(idA) : popularityRank(idA);
+      const rankB = dimension === 'competence' ? competenceRank(idB) : popularityRank(idB);
+      return rankA > rankB ? idA : idB;
+    }
+
+    function faceCardHTML(id, extraClass = '') {
+      return `
+        <div class="face-card ${extraClass}">
+          <div class="face-avatar" style="background:${FACE_COLORS[id-1]}">${FACE_INITIALS[id-1]}</div>
+          <div class="face-id">#${id}</div>
+        </div>`;
+    }
+
+    function comparisonHTML(trial) {
+      const dimLabel = trial.dimension === 'competence' ? '能力 (Competence)' : '人气 (Popularity)';
+      const dimClass = trial.dimension === 'competence' ? 'competence' : 'popularity';
+      const question = trial.dimension === 'competence'
+        ? '谁的技术能力更强？'
+        : '谁更能通过众筹筹集资金（更受欢迎）？';
+      const leftFirst = Math.random() < 0.5;
+      const leftId = leftFirst ? trial.idA : trial.idB;
+      const rightId = leftFirst ? trial.idB : trial.idA;
+      trial._leftId = leftId;
+      trial._rightId = rightId;
+      const phaseTag = trial.phase === 'learn' ? '学习' : '测试';
+      const bannerClass = trial.phase === 'learn' ? 'learn' : 'test';
+      return `
+        <div class="trial-container">
+          <div class="block-banner ${bannerClass}">Block ${trial.block} · ${phaseTag} · ${dimLabel}</div>
+          <div class="dim-cue ${dimClass}"></div>
+          <div class="dim-label ${trial.dimension === 'competence' ? 'comp' : 'pop'}">${dimLabel}</div>
+          <div class="question-text">${question}</div>
+          <div class="comparison-row">
+            ${faceCardHTML(leftId)}
+            <div class="vs-badge">VS</div>
+            ${faceCardHTML(rightId)}
+          </div>
+          <div class="hint-text">按 ← 选择左侧 · 按 → 选择右侧</div>
+        </div>`;
+    }
+
+    // Partner selection trials
+    function buildPartnerTrials(nTrials) {
+      const trials = [];
+      for (let i = 0; i < nTrials; i++) {
+        const ids = shuffle([...Array(16).keys()].map(x => x + 1)).slice(0, 3);
+        const [f0, f1, f2] = ids;
+        const gp1 = growthPotential(f1);
+        const gp2 = growthPotential(f2);
+        const correct = gp1 > gp2 ? 'F1' : gp2 > gp1 ? 'F2' : (competenceRank(f1) >= competenceRank(f2) ? 'F1' : 'F2');
+        trials.push({ f0, f1, f2, correctPartner: correct, phase: 'partner_selection', trialNum: i + 1 });
+      }
+      return trials;
+    }
+
+    const partnerTrials = buildPartnerTrials(DEMO_MODE ? 12 : 48);
+
+    const jsPsych = initJsPsych({
+      show_progress_bar: true,
+      on_finish: () => {
+        const blob = new Blob([JSON.stringify(jsPsych.data.get().json(), null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `park2021_${Date.now()}.json`;
+        a.click();
+      }
+    });
+
+    const timeline = [];
+
+    timeline.push({
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: `
+        <div class="trial-container">
+          <h1>多维社会等级学习</h1>
+          <p style="max-width:700px;text-align:center;line-height:1.7">
+            本实验复现 <strong>Park, Miller &amp; Boorman (2021, Nature Neuroscience)</strong> 的行为范式。<br><br>
+            16 位虚拟创业者构成 <strong>4×4 二维等级网格</strong>（能力 × 人气）：<br>
+            <span style="color:#3b82f6">■ 蓝色</span> = 能力维度 &nbsp;·&nbsp;
+            <span style="color:#ef4444">■ 红色</span> = 人气维度<br><br>
+            <strong>阶段一</strong>：通过成对比较学习等级（学习 block 有反馈，测试 block 无反馈）<br>
+            <strong>阶段二</strong>：伙伴选择任务——基于二维等级推断谁的「增长潜力」(GP) 更大<br><br>
+            ${DEMO_MODE ? '<em>演示模式：每 block 24 试次。完整版请访问 ?mode=full</em>' : ''}
+          </p>
+          <div class="grid-legend" style="margin-top:1rem">
+            ${[16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1].map(n =>
+              `<div class="cell">#${n}</div>`).join('')}
+          </div>
+          <p class="hint-text" style="margin-top:0.5rem">↑ 高人气 · → 高能力</p>
+          <p class="hint-text">按任意键开始</p>
+        </div>`,
+      choices: 'ALL_KEYS'
+    });
+
+    // Phase 1: 4 learning + 4 test blocks (competence/popularity alternating)
+    const blockConfigs = [
+      { block: 1, dimension: 'popularity', phase: 'learn' },
+      { block: 1, dimension: 'popularity', phase: 'test' },
+      { block: 2, dimension: 'competence', phase: 'learn' },
+      { block: 2, dimension: 'competence', phase: 'test' },
+      { block: 3, dimension: 'popularity', phase: 'learn' },
+      { block: 3, dimension: 'popularity', phase: 'test' },
+      { block: 4, dimension: 'competence', phase: 'learn' },
+      { block: 4, dimension: 'competence', phase: 'test' }
+    ];
+
+    blockConfigs.forEach(cfg => {
+      timeline.push({
+        type: jsPsychHtmlKeyboardResponse,
+        stimulus: `
+          <div class="trial-container">
+            <h2>${cfg.phase === 'learn' ? 'LEARN' : 'TEST'}</h2>
+            <p class="question-text">
+              ${cfg.phase === 'learn' ? '学习' : '测试'} Block ${cfg.block} ·
+              ${cfg.dimension === 'competence' ? '能力' : '人气'}维度
+            </p>
+            <p class="hint-text">${cfg.phase === 'learn' ? '您将收到反馈' : '无反馈，请推断'} · 按任意键开始</p>
+          </div>`,
+        choices: 'ALL_KEYS'
+      });
+
+      const trials = cfg.phase === 'learn'
+        ? buildLearnTrials(cfg.dimension, cfg.block)
+        : buildTestTrials(cfg.dimension, cfg.block);
+
+      timeline.push({
+        timeline: [
+          {
+            type: jsPsychHtmlKeyboardResponse,
+            stimulus: function() { return comparisonHTML(jsPsych.timelineVariable('trial')); },
+            choices: ['ArrowLeft', 'ArrowRight'],
+            trial_duration: 10000,
+            response_ends_trial: true,
+            data: { experiment: 'park2021', task: 'hierarchy_training' },
+            on_finish: function(data) {
+              const trial = jsPsych.timelineVariable('trial');
+              const chosenId = data.response === 'ArrowLeft' ? trial._leftId : trial._rightId;
+              const correctId = higherInDim(trial.idA, trial.idB, trial.dimension);
+              const objectivelyCorrect = chosenId === correctId;
+              data.phase = trial.phase;
+              data.block = trial.block;
+              data.dimension = trial.dimension;
+              data.id_a = trial.idA;
+              data.id_b = trial.idB;
+              data.chosen_id = chosenId;
+              data.correct_id = correctId;
+              data.objectively_correct = objectivelyCorrect;
+              if (trial.phase === 'learn') {
+                const showCorrect = Math.random() < FEEDBACK_ACCURACY ? objectivelyCorrect : !objectivelyCorrect;
+                data.feedback_shown_correct = showCorrect;
+                data.correct = objectivelyCorrect;
+              } else {
+                data.correct = objectivelyCorrect;
+              }
+            }
+          },
+          {
+            timeline: [{
+              type: jsPsychHtmlKeyboardResponse,
+              stimulus: function() {
+                const last = jsPsych.data.get().last(1).values()[0];
+                const shown = last.feedback_shown_correct;
+                return `<div class="trial-container">
+                  <div class="${shown ? 'feedback-correct' : 'feedback-incorrect'}">
+                    ${shown ? '✓ 正确' : '✗ 错误'}
+                  </div>
+                </div>`;
+              },
+              choices: 'NO_KEYS',
+              trial_duration: 800
+            }],
+            conditional_function: function() {
+              const trial = jsPsych.timelineVariable('trial');
+              const last = jsPsych.data.get().last(1).values()[0];
+              return trial.phase === 'learn' && last.response !== null;
+            }
+          },
+          {
+            type: jsPsychHtmlKeyboardResponse,
+            stimulus: `<div class="trial-container"><p class="hint-text" style="font-size:1.2rem">Missed</p></div>`,
+            choices: 'NO_KEYS',
+            trial_duration: 2000,
+            conditional_function: function() {
+              const last = jsPsych.data.get().last(1).values()[0];
+              return last.response === null;
+            }
+          }
+        ],
+        timeline_variables: trials.map(trial => ({ trial }))
+      });
+    });
+
+    // Phase 2: Partner Selection Task
+    timeline.push({
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: `
+        <div class="trial-container">
+          <h2>伙伴选择任务</h2>
+          <p style="max-width:650px;text-align:center;line-height:1.7">
+            接下来进入 <strong>Partner Selection Task</strong>。<br>
+            每次呈现三位创业者：<strong>F0</strong>（参考对象）、<strong>F1</strong> 和 <strong>F2</strong>（候选伙伴）。<br>
+            请选择 F1 或 F2 作为未来创业项目的合作伙伴。<br>
+            提示：需综合二维等级推断谁的 <strong>增长潜力 (Growth Potential, GP)</strong> 更大。
+          </p>
+          <p class="hint-text">按任意键开始</p>
+        </div>`,
+      choices: 'ALL_KEYS'
+    });
+
+    timeline.push({
+      timeline: [{
+        type: jsPsychHtmlKeyboardResponse,
+        stimulus: function() {
+          const t = jsPsych.timelineVariable('trial');
+          return `
+            <div class="trial-container">
+              <div class="block-banner test">伙伴选择 · 试次 ${t.trialNum}/${partnerTrials.length}</div>
+              <div class="question-text">谁更适合作为 F0 的创业伙伴？</div>
+              <div class="partner-row">
+                <div>
+                  <div class="partner-label">F0 参考</div>
+                  ${faceCardHTML(t.f0, 'ref')}
+                </div>
+                <div>
+                  <div class="partner-label">F1 · 按 ← 选择</div>
+                  ${faceCardHTML(t.f1)}
+                </div>
+                <div>
+                  <div class="partner-label">F2 · 按 → 选择</div>
+                  ${faceCardHTML(t.f2)}
+                </div>
+              </div>
+            </div>`;
+        },
+        choices: ['ArrowLeft', 'ArrowRight'],
+        data: { experiment: 'park2021', task: 'partner_selection' },
+        on_finish: function(data) {
+          const t = jsPsych.timelineVariable('trial');
+          const chosen = data.response === 'ArrowLeft' ? 'F1' : 'F2';
+          data.f0 = t.f0; data.f1 = t.f1; data.f2 = t.f2;
+          data.chosen_partner = chosen;
+          data.correct_partner = t.correctPartner;
+          data.correct = chosen === t.correctPartner;
+          data.gp_f1 = growthPotential(t.f1);
+          data.gp_f2 = growthPotential(t.f2);
+        }
+      }],
+      timeline_variables: partnerTrials.map(trial => ({ trial }))
+    });
+
+    timeline.push({
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: function() {
+        const learn = jsPsych.data.get().filter({ task: 'hierarchy_training', phase: 'learn' });
+        const test = jsPsych.data.get().filter({ task: 'hierarchy_training', phase: 'test' });
+        const partner = jsPsych.data.get().filter({ task: 'partner_selection' });
+        return `
+          <div class="trial-container">
+            <h2>实验完成</h2>
+            <p style="text-align:center;line-height:1.9">
+              学习阶段客观正确率：<strong>${(learn.select('correct').mean() * 100).toFixed(1)}%</strong><br>
+              测试阶段正确率：<strong>${(test.select('correct').mean() * 100).toFixed(1)}%</strong><br>
+              伙伴选择正确率：<strong>${(partner.select('correct').mean() * 100).toFixed(1)}%</strong><br><br>
+              数据已自动下载为 JSON 文件。
+            </p>
+            <p class="hint-text">按任意键结束</p>
+          </div>`;
+      },
+      choices: 'ALL_KEYS'
+    });
+
+    jsPsych.run(timeline);
+  </script>
+</body>
+</html>

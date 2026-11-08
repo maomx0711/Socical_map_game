@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>社会等级学习实验范式 — jsPsych</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+      color: #e2e8f0; min-height: 100vh;
+      display: flex; align-items: center; justify-content: center; padding: 2rem;
+    }
+    .container { max-width: 800px; width: 100%; }
+    h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+    .subtitle { color: #94a3b8; margin-bottom: 2rem; }
+    .card {
+      background: rgba(30, 41, 59, 0.8); border: 1px solid #334155;
+      border-radius: 16px; padding: 1.5rem; margin-bottom: 1.25rem;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .card:hover { border-color: #6366f1; transform: translateY(-2px); }
+    .card h2 { font-size: 1.15rem; margin-bottom: 0.5rem; }
+    .card p { color: #94a3b8; font-size: 0.92rem; line-height: 1.6; margin-bottom: 1rem; }
+    .card a {
+      display: inline-block; padding: 0.6rem 1.2rem;
+      background: #4f46e5; color: white; text-decoration: none;
+      border-radius: 8px; font-weight: 600; font-size: 0.9rem;
+    }
+    .card a:hover { background: #6366f1; }
+    .card a.demo { background: transparent; border: 1px solid #475569; margin-left: 0.5rem; }
+    .card a.demo:hover { border-color: #94a3b8; background: rgba(255,255,255,0.05); }
+    .tag {
+      display: inline-block; font-size: 0.75rem; padding: 0.2rem 0.6rem;
+      border-radius: 999px; margin-right: 0.4rem; margin-bottom: 0.5rem;
+    }
+    .tag.neuron { background: #164e63; color: #67e8f9; }
+    .tag.natneuro { background: #4c1d95; color: #c4b5fd; }
+    footer { margin-top: 2rem; color: #64748b; font-size: 0.82rem; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>社会等级学习实验范式</h1>
+    <p class="subtitle">基于 jsPsych 8 · 可在线运行的 HTML 实验</p>
+
+    <div class="card">
+      <span class="tag neuron">Neuron 2012</span>
+      <span class="tag">一维等级 · 传递推理</span>
+      <h2>Kumaran et al. (2012) — Hierarchy Learning Task</h2>
+      <p>
+        学习阶段（Learn Phase）：并行学习社会（员工权力）与非社会（星系矿物）两个七级线性等级。
+        训练试次呈现相邻等级对并提供反馈；测试试次呈现非相邻对，要求传递推理并报告信心（1–3）。
+        含等级回忆测试（Debriefing）。
+      </p>
+      <a href="kumaran2012_hierarchy_learning.html">开始实验（演示 3 blocks）</a>
+      <a class="demo" href="kumaran2012_hierarchy_learning.html?mode=full">完整版（15 blocks）</a>
+    </div>
+
+    <div class="card">
+      <span class="tag natneuro">Nature Neuroscience 2021</span>
+      <span class="tag">二维等级 · 网格编码</span>
+      <h2>Park, Miller &amp; Boorman (2021) — Multidimensional Hierarchy</h2>
+      <p>
+        16 位虚拟创业者构成 4×4 能力×人气二维等级网格。阶段一：反馈式成对比较学习（75% 可靠反馈）+ 无反馈测试。
+        阶段二：伙伴选择任务（Partner Selection），基于增长潜力 (GP) 进行二维推断。
+      </p>
+      <a href="park2021_multidimensional_hierarchy.html">开始实验（演示模式）</a>
+      <a class="demo" href="park2021_multidimensional_hierarchy.html?mode=full">完整版</a>
+    </div>
+
+    <div class="card">
+      <span class="tag">学习后测验</span>
+      <span class="tag">选择 · 固定选项评价</span>
+      <h2>社会学习后的同时呈现配对</h2>
+      <p>
+        先用反馈学习六人在亲和力与社会地位上的相邻等级。学习之后，一种测验同时呈现来自不同配对的三人，要求选出最具亲和力或社会地位最高者；
+        另一种测验同时呈现两个不同配对，并用始终不变的 1–5 量表分别评价。
+      </p>
+      <a href="post_learning_choice_evaluation.html">开始实验（演示）</a>
+      <a class="demo" href="post_learning_choice_evaluation.html?mode=full">完整版</a>
+    </div>
+
+    <footer>
+      实验数据在结束时自动下载为 JSON · 使用 jsPsych 8.2.2 CDN，无需本地安装
+    </footer>
+  </div>
+</body>
+</html>
