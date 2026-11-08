@@ -421,6 +421,32 @@ kbd {
   font-size: 15px;
 }
 
+.file-note a {
+  color: var(--teal);
+}
+
+.task-wide {
+  width: min(1080px, 96vw);
+}
+
+.stage-3 {
+  gap: 40px;
+}
+
+.stage-3 .option,
+.stage-3 .card {
+  width: 200px;
+}
+
+.stage-3 .card {
+  height: 236px;
+}
+
+.stage-3 .word {
+  font-size: 48px;
+  letter-spacing: 0.08em;
+}
+
 .gallery-page {
   width: min(980px, 94vw);
   margin: 0 auto;
@@ -471,5 +497,24 @@ kbd {
 
   .points {
     font-size: 30px;
+  }
+
+  .stage-3 {
+    gap: 12px;
+  }
+
+  .stage-3 .option,
+  .stage-3 .card {
+    width: 28vw;
+    max-width: 200px;
+  }
+
+  .stage-3 .card {
+    height: 33vw;
+    max-height: 236px;
+  }
+
+  .stage-3 .word {
+    font-size: 28px;
   }
 }

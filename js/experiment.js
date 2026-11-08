@@ -772,6 +772,7 @@ function showGate() {
     prefill,
     narrow: window.innerWidth < 900,
     demo: config.demo,
+    alt: { href: "three.html", text: "打开三臂任务" },
   });
   const form = document.querySelector("#gate-form");
   form.addEventListener("submit", (event) => {
